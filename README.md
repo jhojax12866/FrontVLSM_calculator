@@ -1,53 +1,53 @@
-VLSM Calculator - Aplicación Electron
+# VLSM Calculator - Aplicación Electron
 
-Descripción
+Una aplicación de escritorio construida con Electron para calcular subredes de longitud variable (VLSM) y aplicar configuraciones automáticamente a servidores Ubuntu.
 
-VLSM Calculator es una aplicación de escritorio desarrollada con Electron que permite calcular subredes VLSM (Variable Length Subnet Masking) y aplicar automáticamente la configuración a un servidor Ubuntu mediante SSH.
+## Descripción
 
-Requisitos Previos
+VLSM Calculator permite:
+- Calcular subredes de longitud variable (VLSM) a partir de una dirección de red
+- Visualizar la información detallada de cada subred
+- Enviar configuraciones DHCP automáticamente a un servidor Ubuntu
+- Guardar y gestionar credenciales de servidores de forma segura
 
-Node.js (versión 14.0.0 o superior)
+## Requisitos Previos
 
-npm (normalmente se instala con Node.js)
+Antes de instalar y ejecutar esta aplicación, necesitas tener instalado:
 
-Sistema operativo: Windows, macOS o Linux
+- [Node.js](https://nodejs.org/) (v14.0.0 o superior)
+- [npm](https://www.npmjs.com/) (normalmente viene con Node.js)
+- [Git](https://git-scm.com/) (opcional, para clonar el repositorio)
 
-Instalación
+Para la funcionalidad completa:
+- Un servidor Ubuntu con acceso SSH
+- El paquete `isc-dhcp-server` instalado en el servidor Ubuntu
 
-1. Clonar o descargar el proyecto
+## Instalación
 
-# Crear una carpeta para el proyecto
-mkdir VLSM-App
-cd VLSM-App
+### Opción 1: Descargar el código fuente y ejecutarlo
 
-2. Inicializar el proyecto
+1. Clona o descarga este repositorio:
+   ```bash
+   git clone https://github.com/tu-usuario/vlsm-calculator.git
+   cd vlsm-calculator
+   ```
+2. Instala las dependencias:
+   ```bash
+   npm install
+   ```
+3. Inicia la aplicación en modo desarrollo:
+   ```bash
+   npm start
+   ```
 
-# Inicializar un nuevo proyecto npm
-npm init -y
+### Opción 2: Instalar desde un paquete preconstruido
 
-3. Instalar dependencias
+1. Descarga el instalador desde la [sección de releases](https://github.com/tu-usuario/vlsm-calculator/releases).
+2. Ejecuta el instalador y sigue las instrucciones en pantalla.
 
-# Instalar Electron, Electron Builder y otras dependencias
-npm install
+## Configuración de `package.json`
 
-4. Estructura de Archivos
-
-Crea los siguientes archivos en la carpeta src:
-
-main/main.js - Proceso principal de Electron
-
-renderer/index.html - Interfaz de usuario
-
-renderer/renderer.js - Lógica del renderizador
-
-renderer/styles.css - Estilos CSS
-
-utils/ssh-utils.js - Utilidades para SSH
-
-5. Configurar package.json
-
-Tu archivo package.json ya debe contener la siguiente configuración:
-
+```json
 {
   "name": "vlsm-electron",
   "version": "1.0.0",
@@ -93,85 +93,60 @@ Tu archivo package.json ya debe contener la siguiente configuración:
     }
   }
 }
+```
 
-Ejecución en Modo Desarrollo
+## Uso de la Aplicación
 
-Para ejecutar la aplicación en modo desarrollo:
+### Calculadora VLSM
 
-npm start
+1. Ingresa la dirección de red (por ejemplo, 192.168.1.0)
+2. Especifica el número de subredes
+3. Ingresa el número de hosts requeridos para cada subred
+4. Haz clic en "Calcular VLSM"
+5. Los resultados se mostrarán en la sección inferior
 
-Construcción del Instalador
+### Configuración del Servidor
+
+1. Ve a la pestaña "Configuración del Servidor"
+2. Ingresa la dirección IP, usuario y contraseña del servidor Ubuntu
+3. Haz clic en "Guardar Configuración"
+4. Regresa a la pestaña "Calculadora"
+5. Después de calcular VLSM, haz clic en "Enviar al Servidor" para aplicar la configuración
+
+## Construcción del Instalador
 
 Para crear un instalador para Windows:
 
-# Ejecutar como administrador para evitar problemas de permisos
+```bash
 npm run dist
+```
 
-El instalador se generará en la carpeta dist.
+El instalador se generará en la carpeta `dist`.
 
-Uso de la Aplicación
+## Solución de Problemas
 
-Calculadora VLSM
-
-Ingresa la dirección de red (por ejemplo, 192.168.1.0)
-
-Especifica el número de subredes
-
-Ingresa el número de hosts requeridos para cada subred
-
-Haz clic en "Calcular VLSM"
-
-Los resultados se mostrarán en la sección inferior
-
-Configuración del Servidor
-
-Ve a la pestaña "Configuración del Servidor"
-
-Ingresa la dirección IP, usuario y contraseña del servidor Ubuntu
-
-Haz clic en "Guardar Configuración"
-
-Regresa a la pestaña "Calculadora"
-
-Después de calcular VLSM, haz clic en "Enviar al Servidor" para aplicar la configuración
-
-Solución de Problemas
-
-Problemas de Construcción
+### Problemas de Construcción
 
 Si encuentras problemas al construir el instalador:
 
-Error de permisos: Ejecuta la línea de comandos como administrador
-
+```bash
 npx electron-builder --win --config.npmRebuild=false
+```
 
-Problemas con enlaces simbólicos: Usa la configuración simplificada
-
-npx electron-builder --win --config.npmRebuild=false --config.asar=false --config.win.signAndEditExecutable=false
-
-Limpiar caché: Si persisten los problemas, limpia la caché
-
-# En PowerShell
-Remove-Item -Recurse -Force $env:USERPROFILE\AppData\Local\electron-builder\Cache
-
-Problemas de Conexión SSH
+### Problemas de Conexión SSH
 
 Si tienes problemas para conectar con el servidor:
 
-Verifica que el servidor esté encendido y accesible en la red
+1. Verifica que el servidor esté encendido y accesible en la red
+2. Asegúrate de que el servicio SSH esté activo en el servidor
+3. Comprueba que no haya firewalls bloqueando la conexión
+4. Verifica que las credenciales sean correctas
 
-Asegúrate de que el servicio SSH esté activo en el servidor
+## Licencia
 
-Comprueba que no haya firewalls bloqueando la conexión
+Este proyecto está bajo la licencia MIT. Para más información, consulta el archivo LICENSE.
 
-Verifica que las credenciales sean correctas
+---
 
-Requisitos del Servidor
+Si necesitas más modificaciones, dime. 🚀
 
-Para que la aplicación pueda configurar el servidor Ubuntu, este debe tener:
-
-Servicio SSH activo
-
-Paquete isc-dhcp-server instalado
-
-El usuario debe tener permisos sudo
