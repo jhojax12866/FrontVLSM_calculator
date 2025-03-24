@@ -148,5 +148,5 @@ Este proyecto está bajo la licencia MIT. Para más información, consulta el ar
 
 ---
 
-Si necesitas más modificaciones, dime. 🚀
+
 
