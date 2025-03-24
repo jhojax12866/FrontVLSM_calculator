@@ -28,7 +28,7 @@ Para la funcionalidad completa:
 
 1. Clona o descarga este repositorio:
    ```bash
-   git clone https://github.com/tu-usuario/vlsm-calculator.git
+   git clone https://github.com/jhojax12866/FrontVLSM_calculator
    cd vlsm-calculator
    ```
 2. Instala las dependencias:
@@ -39,11 +39,6 @@ Para la funcionalidad completa:
    ```bash
    npm start
    ```
-
-### Opción 2: Instalar desde un paquete preconstruido
-
-1. Descarga el instalador desde la [sección de releases](https://github.com/jhojax12866/FrontVLSM_calculator.git).
-2. Ejecuta el instalador y sigue las instrucciones en pantalla.
 
 ## Configuración de `package.json`
 
