@@ -142,11 +142,6 @@ Si tienes problemas para conectar con el servidor:
 3. Comprueba que no haya firewalls bloqueando la conexión
 4. Verifica que las credenciales sean correctas
 
-## Licencia
-
-Este proyecto está bajo la licencia MIT. Para más información, consulta el archivo LICENSE.
-
----
 
 
 
