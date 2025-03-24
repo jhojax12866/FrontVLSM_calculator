@@ -42,7 +42,7 @@ Para la funcionalidad completa:
 
 ### Opción 2: Instalar desde un paquete preconstruido
 
-1. Descarga el instalador desde la [sección de releases](https://github.com/tu-usuario/vlsm-calculator/releases).
+1. Descarga el instalador desde la [sección de releases](https://github.com/jhojax12866/FrontVLSM_calculator.git).
 2. Ejecuta el instalador y sigue las instrucciones en pantalla.
 
 ## Configuración de `package.json`
@@ -97,6 +97,14 @@ Para la funcionalidad completa:
 
 ## Uso de la Aplicación
 
+### Configuración del Servidor
+
+1. Ve a la pestaña "Configuración del Servidor"
+2. Ingresa la dirección IP, usuario y contraseña del servidor Ubuntu
+3. Haz clic en "Guardar Configuración"
+4. Regresa a la pestaña "Calculadora"
+5. Después de calcular VLSM, haz clic en "Enviar al Servidor" para aplicar la configuración
+
 ### Calculadora VLSM
 
 1. Ingresa la dirección de red (por ejemplo, 192.168.1.0)
@@ -105,13 +113,6 @@ Para la funcionalidad completa:
 4. Haz clic en "Calcular VLSM"
 5. Los resultados se mostrarán en la sección inferior
 
-### Configuración del Servidor
-
-1. Ve a la pestaña "Configuración del Servidor"
-2. Ingresa la dirección IP, usuario y contraseña del servidor Ubuntu
-3. Haz clic en "Guardar Configuración"
-4. Regresa a la pestaña "Calculadora"
-5. Después de calcular VLSM, haz clic en "Enviar al Servidor" para aplicar la configuración
 
 ## Construcción del Instalador
 
