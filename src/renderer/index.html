@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Calculadora VLSM</title>
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+  <div class="container">
+    <h1>Calculadora VLSM</h1>
+    
+    <div class="tabs">
+      <button class="tab-btn active" data-tab="calculator">Calculadora</button>
+      <button class="tab-btn" data-tab="server-config">Configuración del Servidor</button>
+    </div>
+    
+    <div id="calculator-tab" class="tab-content active">
+      <form id="vlsm-form">
+        <div class="form-group">
+          <label for="network">Dirección de Red:</label>
+          <input type="text" id="network" placeholder="ej., 172.18.0.0" required>
+        </div>
+        
+        <div class="form-group">
+          <label for="subnets">Número de Subredes:</label>
+          <input type="number" id="subnets" placeholder="ej., 3" min="1" required>
+        </div>
+        
+        <div class="form-group hosts-section">
+          <div class="hosts-header">
+            <label>Hosts por Subred:</label>
+          </div>
+          <div id="hosts-container">
+            <!-- Los campos de host se generarán automáticamente aquí -->
+          </div>
+        </div>
+        
+        <button type="submit" id="calculate-btn">Calcular VLSM</button>
+      </form>
+      
+      <div id="loading-spinner" class="loading-spinner hidden">
+        <div class="spinner"></div>
+      </div>
+      
+      <div id="result"></div>
+      
+      <div class="server-section">
+        <h2>Aplicar Configuración al Servidor</h2>
+        <p>Envía la configuración VLSM calculada a tu servidor Ubuntu para aplicarla automáticamente.</p>
+        <button id="enviar-servidor" disabled>Enviar al Servidor</button>
+        <div id="estado-servidor"></div>
+      </div>
+    </div>
+    
+    <div id="server-config-tab" class="tab-content">
+      <h2>Configuración del Servidor</h2>
+      <p>Ingresa la información de tu servidor Ubuntu para poder enviar las configuraciones VLSM.</p>
+      
+      <form id="server-form">
+        <div class="form-group">
+          <label for="server-ip">Dirección IP del Servidor:</label>
+          <input type="text" id="server-ip" placeholder="ej., 192.168.101.86" required>
+        </div>
+        
+        <div class="form-group">
+          <label for="server-user">Usuario:</label>
+          <input type="text" id="server-user" placeholder="ej., admin1" required>
+        </div>
+        
+        <div class="form-group">
+          <label for="server-password">Contraseña:</label>
+          <input type="password" id="server-password" required>
+        </div>
+        
+        <button type="submit" id="save-server-btn">Guardar Configuración</button>
+      </form>
+      
+      <div id="server-status"></div>
+    </div>
+  </div>
+  
+  <script src="js/renderer.js"></script>
+</body>
+</html>
+

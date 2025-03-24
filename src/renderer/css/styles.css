@@ -1,0 +1,246 @@
+body {
+    font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+    margin: 0;
+    padding: 20px;
+    background-color: #f5f5f5;
+    color: #333;
+  }
+  
+  .container {
+    max-width: 800px;
+    margin: 0 auto;
+    background-color: #fff;
+    padding: 20px;
+    border-radius: 8px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+  }
+  
+  h1 {
+    text-align: center;
+    color: #2c3e50;
+    margin-bottom: 30px;
+  }
+  
+  h2 {
+    color: #2c3e50;
+    margin-top: 30px;
+    margin-bottom: 15px;
+    border-bottom: 1px solid #eee;
+    padding-bottom: 10px;
+  }
+  
+  .form-group {
+    margin-bottom: 20px;
+  }
+  
+  label {
+    display: block;
+    margin-bottom: 5px;
+    font-weight: bold;
+  }
+  
+  input[type="text"],
+  input[type="number"],
+  input[type="password"] {
+    width: 100%;
+    padding: 10px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-size: 16px;
+  }
+  
+  .hosts-section {
+    margin-bottom: 20px;
+    border: 1px solid #eee;
+    padding: 15px;
+    border-radius: 4px;
+    background-color: #f9f9f9;
+  }
+  
+  .hosts-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 15px;
+  }
+  
+  .host-item {
+    display: flex;
+    align-items: center;
+    margin-bottom: 10px;
+  }
+  
+  .subnet-label {
+    width: 100px;
+    margin-bottom: 0;
+    margin-right: 10px;
+  }
+  
+  .host-input {
+    flex: 1;
+  }
+  
+  .no-subnets {
+    color: #7f8c8d;
+    text-align: center;
+    font-style: italic;
+  }
+  
+  button {
+    background-color: #3498db;
+    color: white;
+    border: none;
+    padding: 10px 15px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 16px;
+    transition: background-color 0.3s;
+  }
+  
+  button:hover {
+    background-color: #2980b9;
+  }
+  
+  button:disabled {
+    background-color: #bdc3c7;
+    cursor: not-allowed;
+  }
+  
+  #calculate-btn,
+  #save-server-btn {
+    display: block;
+    width: 100%;
+    padding: 12px;
+    font-size: 18px;
+    background-color: #3498db;
+    margin-top: 20px;
+  }
+  
+  #result {
+    margin-top: 30px;
+    padding: 15px;
+    border-radius: 4px;
+    background-color: #f9f9f9;
+    min-height: 100px;
+  }
+  
+  #result pre {
+    white-space: pre-wrap;
+    font-family: "Courier New", Courier, monospace;
+    margin: 0;
+  }
+  
+  .error {
+    color: #e74c3c;
+    font-weight: bold;
+    padding: 10px;
+    background-color: #fadbd8;
+    border-radius: 4px;
+    margin-top: 10px;
+  }
+  
+  .success {
+    color: #27ae60;
+    font-weight: bold;
+    padding: 10px;
+    background-color: #d5f5e3;
+    border-radius: 4px;
+    margin-top: 10px;
+  }
+  
+  .loading {
+    color: #3498db;
+    font-weight: bold;
+    padding: 10px;
+    background-color: #ebf5fb;
+    border-radius: 4px;
+    margin-top: 10px;
+  }
+  
+  .loading-spinner {
+    display: flex;
+    justify-content: center;
+    margin: 20px 0;
+  }
+  
+  .spinner {
+    border: 4px solid rgba(0, 0, 0, 0.1);
+    border-radius: 50%;
+    border-top: 4px solid #3498db;
+    width: 30px;
+    height: 30px;
+    animation: spin 1s linear infinite;
+  }
+  
+  .hidden {
+    display: none;
+  }
+  
+  .server-section {
+    margin-top: 30px;
+    padding: 20px;
+    border: 1px solid #eee;
+    border-radius: 4px;
+    background-color: #f9f9f9;
+  }
+  
+  #enviar-servidor {
+    background-color: #27ae60;
+    margin-bottom: 15px;
+  }
+  
+  #enviar-servidor:hover {
+    background-color: #219653;
+  }
+  
+  #estado-servidor,
+  #server-status {
+    min-height: 30px;
+    margin-top: 15px;
+  }
+  
+  /* Estilos para las pestañas */
+  .tabs {
+    display: flex;
+    margin-bottom: 20px;
+    border-bottom: 1px solid #ddd;
+  }
+  
+  .tab-btn {
+    padding: 10px 20px;
+    background-color: transparent;
+    color: #333;
+    border: none;
+    border-bottom: 3px solid transparent;
+    margin-right: 10px;
+    cursor: pointer;
+    font-weight: bold;
+  }
+  
+  .tab-btn:hover {
+    background-color: #f5f5f5;
+  }
+  
+  .tab-btn.active {
+    border-bottom: 3px solid #3498db;
+    color: #3498db;
+  }
+  
+  .tab-content {
+    display: none;
+  }
+  
+  .tab-content.active {
+    display: block;
+  }
+  
+  @keyframes spin {
+    0% {
+      transform: rotate(0deg);
+    }
+    100% {
+      transform: rotate(360deg);
+    }
+  }
+  
+  
