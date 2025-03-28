@@ -41,7 +41,7 @@ async function automateNetworkConfiguration(dhcpConfig, interfaceName = "enp0s3"
     console.log(`🔑 Conectando a ${host} con el usuario ${user}...`)
 
     // Configuración de interfaces
-    const configureInterfaces = `INTERFACEv4=\\"${interfaceName}\\"`
+    const configureInterfaces = `INTERFACESv4=\\"${interfaceName}\\"`
 
     // Comandos SSH
     const comandoBackup = `echo ${password} | sudo -S cp /etc/dhcp/dhcpd.conf /etc/dhcp/dhcpd.conf.bak`

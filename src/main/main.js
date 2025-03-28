@@ -3,6 +3,7 @@ const path = require("path")
 const fs = require("fs")
 const crypto = require("crypto")
 const { Client } = require("ssh2")
+const { cleanPreviousConfigs } = require("../utils/clean-dhcp-config")
 
 // Mantener una referencia global del objeto window
 let mainWindow
@@ -163,7 +164,7 @@ async function automateNetworkConfiguration(dhcpConfig) {
     const comandoBackup = `echo ${password} | sudo -S cp /etc/dhcp/dhcpd.conf /etc/dhcp/dhcpd.conf.bak`
     const comandoBackupInterfaces = `echo ${password} | sudo -S cp /etc/default/isc-dhcp-server /etc/default/isc-dhcp-server.bak`
     const comandoConfInterfaces = `echo ${password} | sudo -S bash -c 'echo -e "${configureInterfaces}" > /etc/default/isc-dhcp-server'`
-    const comandoEditar = `echo ${password} | sudo -S bash -c 'echo -e "${dhcpConfig}" > /etc/dhcp/dhcpd.conf'`
+    const comandoEditar = `echo ${password} | sudo -S bash -c 'echo -e "\n# Configuración añadida por VLSM Calculator\n${dhcpConfig}" >> /etc/dhcp/dhcpd.conf'`
     const comandoVerificar = "cat /etc/dhcp/dhcpd.conf"
     const comandoReiniciar = `echo ${password} | sudo -S systemctl restart isc-dhcp-server`
 
@@ -205,6 +206,10 @@ async function automateNetworkConfiguration(dhcpConfig) {
           },
         })
     })
+
+    // Limpiar configuraciones anteriores para evitar duplicados
+    console.log("🧹 Limpiando configuraciones anteriores...")
+    await cleanPreviousConfigs(ssh, password)
 
     // Función para ejecutar comandos SSH
     const ejecutarComando = (comando) => {
