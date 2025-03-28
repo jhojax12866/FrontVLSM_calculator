@@ -4,10 +4,12 @@ const fs = require("fs")
 const crypto = require("crypto")
 const { Client } = require("ssh2")
 
-let ventanaPrincipal
+// Mantener una referencia global del objeto window
+let mainWindow
 
-function crearVentana() {
-  ventanaPrincipal = new BrowserWindow({
+function createWindow() {
+  // Crear la ventana del navegador
+  mainWindow = new BrowserWindow({
     width: 1000,
     height: 800,
     webPreferences: {
@@ -17,16 +19,27 @@ function crearVentana() {
     },
   })
 
+  // Cargar el archivo index.html
+  const indexPath = path.join(__dirname, "../renderer/index.html")
+  console.log("Cargando archivo desde:", indexPath)
+  mainWindow.loadFile(indexPath)
 
-  const rutaIndex = path.join(__dirname, "../renderer/index.html")
-  console.log("Cargando archivo desde:", rutaIndex)
-
-  // Cargar el archivo usando el protocolo file:// con la ruta absoluta
-  ventanaPrincipal.loadFile(rutaIndex)
-
-  // Abrir DevTools para depuración
-  ventanaPrincipal.webContents.openDevTools()
+  // Abrir DevTools para depuración (opcional)
+  // mainWindow.webContents.openDevTools();
 }
+
+// Este método se llamará cuando Electron haya terminado
+// la inicialización y esté listo para crear ventanas del navegador.
+app.whenReady().then(createWindow)
+
+// Salir cuando todas las ventanas estén cerradas, excepto en macOS.
+app.on("window-all-closed", () => {
+  if (process.platform !== "darwin") app.quit()
+})
+
+app.on("activate", () => {
+  if (BrowserWindow.getAllWindows().length === 0) createWindow()
+})
 
 // Función para generar una clave secreta
 function generateSecretKey() {
@@ -157,21 +170,35 @@ async function automateNetworkConfiguration(dhcpConfig) {
     // Crear cliente SSH
     const ssh = new Client()
 
-    // Conectar por SSH (promisificado)
+    // Agregar más eventos para depuración
+    ssh.on("banner", (message) => {
+      console.log("Banner SSH:", message)
+    })
+
+    ssh.on("handshake", () => {
+      console.log("Handshake SSH completado")
+    })
+
+    ssh.on("error", (err) => {
+      console.error("Error SSH detallado:", err)
+    })
+
+    // Conectar por SSH con timeout más largo y más información
     await new Promise((resolve, reject) => {
+      console.log(`Intentando conectar a ${host}:22 con usuario ${user}...`)
+
       ssh
         .on("ready", () => {
-          console.log("Conexión SSH establecida")
+          console.log("Conexión SSH establecida correctamente")
           resolve()
-        })
-        .on("error", (err) => {
-          reject(err)
         })
         .connect({
           host,
           port: 22,
           username: user,
           password,
+          readyTimeout: 30000, // Aumentar timeout a 30 segundos
+          debug: (message) => console.log("SSH Debug:", message),
           // Aceptar claves de host desconocidas
           algorithms: {
             serverHostKey: ["ssh-rsa", "ssh-dss", "ecdsa-sha2-nistp256", "ssh-ed25519"],
@@ -313,20 +340,6 @@ ipcMain.handle("enviar-configuracion", async (event, configuracion) => {
   } catch (error) {
     console.error("Error al enviar configuración:", error)
     return { exito: false, mensaje: error.message }
-  }
-})
-
-app.whenReady().then(crearVentana)
-
-app.on("window-all-closed", () => {
-  if (process.platform !== "darwin") {
-    app.quit()
-  }
-})
-
-app.on("activate", () => {
-  if (BrowserWindow.getAllWindows().length === 0) {
-    crearVentana()
   }
 })
 

@@ -32,13 +32,6 @@ document.addEventListener("DOMContentLoaded", () => {
     })
   })
 
-  // Cargar configuración del servidor si existe
-  if (window.ipcRenderer) {
-    cargarConfiguracionServidor()
-  } else {
-    console.error("Error: ipcRenderer no está disponible")
-  }
-
   // Escuchar cambios en el campo de número de subredes
   inputSubredes.addEventListener("change", () => {
     generarCamposHost()
@@ -83,8 +76,8 @@ document.addEventListener("DOMContentLoaded", () => {
       // Obtener todos los inputs de host
       const inputsHost = document.querySelectorAll(".host-input")
       const hosts = Array.from(inputsHost)
-        .map((input) => input.value.trim())
-        .filter(Boolean)
+        .map((input) => Number.parseInt(input.value.trim()))
+        .filter((value) => !isNaN(value) && value > 0)
 
       if (!red || !subredes || hosts.length === 0) {
         throw new Error("Por favor, completa todos los campos requeridos")
@@ -139,30 +132,36 @@ document.addEventListener("DOMContentLoaded", () => {
   // Enviar configuración al servidor
   botonEnviarServidor.addEventListener("click", async () => {
     try {
-      if (!window.ipcRenderer) {
+      if (!window.electronAPI) {
         throw new Error("Error de comunicación con el proceso principal")
       }
 
-      // Verificar si hay configuración del servidor
-      const configuracionServidor = await window.ipcRenderer.invoke("obtener-configuracion-servidor")
-      if (!configuracionServidor) {
-        estadoServidor.innerHTML = `<div class="error">No hay configuración de servidor. Por favor, configura el servidor primero.</div>`
-        return
-      }
+      // Mostrar información de conexión
+      estadoServidor.innerHTML = `<div class="loading">
+        <p>Intentando conectar al servidor...</p>
+        <p>Esto puede tardar unos momentos. Por favor, espera...</p>
+        <div class="spinner"></div>
+      </div>`
 
-      // Mostrar indicador de carga
-      estadoServidor.innerHTML = '<div class="loading">Enviando configuración al servidor...</div>'
-
-      // Convertir la configuración VLSM a formato DHCP
-      const configuracionDHCP = convertirAFormatoDHCP(window.configuracionVLSM)
+      // La configuración DHCP ya viene formateada directamente desde la API
+      const configuracionDHCP = window.configuracionVLSM
 
       // Enviar la configuración al proceso principal
-      const resultado = await window.ipcRenderer.invoke("enviar-configuracion", configuracionDHCP)
+      const resultado = await window.electronAPI.sendToMain("enviar-configuracion", configuracionDHCP)
 
-      if (resultado.exito) {
+      if (resultado && resultado.exito) {
         estadoServidor.innerHTML = '<div class="success">Configuración aplicada correctamente en el servidor</div>'
       } else {
-        estadoServidor.innerHTML = `<div class="error">Error al aplicar configuración: ${resultado.mensaje}</div>`
+        estadoServidor.innerHTML = `<div class="error">
+          <p>Error al aplicar configuración: ${resultado ? resultado.mensaje : "Error desconocido"}</p>
+          <p>Verifica que:</p>
+          <ul>
+            <li>La dirección IP del servidor es correcta</li>
+            <li>El servidor está encendido y accesible en la red</li>
+            <li>El servicio SSH está activo en el servidor</li>
+            <li>No hay firewalls bloqueando la conexión</li>
+          </ul>
+        </div>`
       }
     } catch (error) {
       estadoServidor.innerHTML = `<div class="error">Error: ${error.message}</div>`
@@ -175,7 +174,7 @@ document.addEventListener("DOMContentLoaded", () => {
     evento.preventDefault()
 
     try {
-      if (!window.ipcRenderer) {
+      if (!window.electronAPI) {
         throw new Error("Error de comunicación con el proceso principal")
       }
 
@@ -183,8 +182,6 @@ document.addEventListener("DOMContentLoaded", () => {
       const ip = document.getElementById("server-ip").value
       const usuario = document.getElementById("server-user").value
       const contrasena = document.getElementById("server-password").value
-
-      console.log("Enviando datos del formulario al proceso principal")
 
       // Validar campos
       if (!ip || !usuario || !contrasena) {
@@ -200,19 +197,19 @@ document.addEventListener("DOMContentLoaded", () => {
       estadoConfigServidor.innerHTML = '<div class="loading">Guardando configuración...</div>'
 
       // Enviar datos al proceso principal para cifrar y guardar
-      const resultado = await window.ipcRenderer.invoke("guardar-configuracion-servidor", {
+      const resultado = await window.electronAPI.sendToMain("guardar-configuracion-servidor", {
         ip,
         usuario,
         contrasena,
       })
 
-      if (resultado.exito) {
+      if (resultado && resultado.exito) {
         estadoConfigServidor.innerHTML = '<div class="success">Configuración guardada correctamente</div>'
 
         // Limpiar contraseña por seguridad
         document.getElementById("server-password").value = ""
       } else {
-        throw new Error(resultado.mensaje)
+        throw new Error(resultado ? resultado.mensaje : "Error al guardar la configuración")
       }
     } catch (error) {
       estadoConfigServidor.innerHTML = `<div class="error">${error.message}</div>`

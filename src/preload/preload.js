@@ -1,25 +1,16 @@
 const { contextBridge, ipcRenderer } = require("electron")
 
 // Exponer API segura para comunicación con el proceso principal
-contextBridge.exposeInMainWorld("ipcRenderer", {
-  invoke: (channel, ...args) => {
+contextBridge.exposeInMainWorld("electronAPI", {
+  sendToMain: async (channel, data) => {
     // Lista blanca de canales permitidos
-    const canalesPermitidos = [
-      "enviar-configuracion",
-      "guardar-configuracion-servidor",
-      "obtener-configuracion-servidor",
-    ]
-
-    if (canalesPermitidos.includes(channel)) {
-      return ipcRenderer.invoke(channel, ...args)
+    const validChannels = ["enviar-configuracion", "guardar-configuracion-servidor", "obtener-configuracion-servidor"]
+    if (validChannels.includes(channel)) {
+      return await ipcRenderer.invoke(channel, data)
     }
-
-    return Promise.reject(new Error(`Canal no permitido: ${channel}`))
+    return null
   },
 })
-
-// Verificar que la API se expone correctamente
-console.log("Preload script ejecutado. ipcRenderer expuesto:", !!contextBridge)
 
 window.addEventListener("DOMContentLoaded", () => {
   console.log("DOM completamente cargado y analizado")
