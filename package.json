@@ -9,6 +9,7 @@
     "dist": "electron-builder",
     "pack": "electron-builder --dir"
   },
+  "author": "Johan Burbano - CodeStart",
   "dependencies": {
     "ssh2": "^1.15.0",
     "vlsm-electron": "file:"
