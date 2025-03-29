@@ -1,6 +1,6 @@
 document.addEventListener("DOMContentLoaded", () => {
   // Verificar que ipcRenderer está disponible
-  console.log("ipcRenderer disponible:", !!window.ipcRenderer)
+  console.log("ipcRenderer disponible:", !!window.electronAPI)
 
   // Elementos de la interfaz
   const formulario = document.getElementById("vlsm-form")
@@ -14,9 +14,22 @@ document.addEventListener("DOMContentLoaded", () => {
   const formularioServidor = document.getElementById("server-form")
   const estadoConfigServidor = document.getElementById("server-status")
 
+  // Elementos de netplan
+  const netplanNoVlsm = document.getElementById("netplan-no-vlsm")
+  const netplanConfigSection = document.getElementById("netplan-config-section")
+  const subnetSelect = document.getElementById("subnet-select")
+  const serverIpInSubnet = document.getElementById("server-ip-in-subnet")
+  const netplanPreview = document.getElementById("netplan-preview")
+  const netplanForm = document.getElementById("netplan-form")
+  const netplanStatus = document.getElementById("netplan-status")
+  const primaryInterface = document.getElementById("primary-interface")
+
   // Elementos de pestañas
   const botonesPestanas = document.querySelectorAll(".tab-btn")
   const contenidosPestanas = document.querySelectorAll(".tab-content")
+
+  // Variables globales para almacenar datos
+  window.subredes = []
 
   // Gestión de pestañas
   botonesPestanas.forEach((boton) => {
@@ -29,6 +42,18 @@ document.addEventListener("DOMContentLoaded", () => {
       boton.classList.add("active")
       const pestanaSeleccionada = boton.getAttribute("data-tab")
       document.getElementById(`${pestanaSeleccionada}-tab`).classList.add("active")
+
+      // Si se selecciona la pestaña de netplan, verificar si hay datos VLSM
+      if (pestanaSeleccionada === "netplan-config") {
+        if (window.configuracionVLSM) {
+          netplanNoVlsm.classList.add("hidden")
+          netplanConfigSection.classList.remove("hidden")
+          cargarSubredes()
+        } else {
+          netplanNoVlsm.classList.remove("hidden")
+          netplanConfigSection.classList.add("hidden")
+        }
+      }
     })
   })
 
@@ -117,6 +142,9 @@ document.addEventListener("DOMContentLoaded", () => {
 
       // Guardar los datos para enviar al servidor
       window.configuracionVLSM = datos
+
+      // Parsear las subredes para la configuración de netplan
+      parsearSubredes(datos)
     } catch (error) {
       resultado.innerHTML = `<div class="error">${error.message}</div>`
       console.error("Error:", error)
@@ -126,6 +154,243 @@ document.addEventListener("DOMContentLoaded", () => {
     } finally {
       // Ocultar indicador de carga
       indicadorCarga.classList.add("hidden")
+    }
+  })
+
+  // Parsear las subredes desde la configuración VLSM
+  function parsearSubredes(configuracionVLSM) {
+    const subredes = []
+    const lineas = configuracionVLSM.split("\n")
+
+    let currentSubnet = null
+
+    for (let i = 0; i < lineas.length; i++) {
+      const linea = lineas[i].trim()
+
+      // Buscar líneas que comienzan con "subnet"
+      if (linea.startsWith("subnet")) {
+        const subnetMatch = linea.match(/subnet\s+(\S+)\s+netmask\s+(\S+)/)
+        if (subnetMatch) {
+          currentSubnet = {
+            address: subnetMatch[1],
+            mask: subnetMatch[2],
+            range: null,
+            gateway: null,
+          }
+        }
+      }
+      // Buscar líneas con "range"
+      else if (linea.startsWith("range") && currentSubnet) {
+        const rangeMatch = linea.match(/range\s+(\S+)\s+(\S+)/)
+        if (rangeMatch) {
+          currentSubnet.range = {
+            start: rangeMatch[1],
+            end: rangeMatch[2],
+          }
+        }
+      }
+      // Buscar líneas con "routers" (gateway)
+      else if (linea.includes("routers") && currentSubnet) {
+        const routerMatch = linea.match(/routers\s+(\S+)/)
+        if (routerMatch) {
+          currentSubnet.gateway = routerMatch[1]
+
+          // Añadir la subred completa al array
+          subredes.push({ ...currentSubnet })
+          currentSubnet = null
+        }
+      }
+    }
+
+    window.subredes = subredes
+    console.log("Subredes parseadas:", subredes)
+  }
+
+  // Cargar las subredes en el selector
+  function cargarSubredes() {
+    // Limpiar opciones existentes
+    subnetSelect.innerHTML = ""
+
+    if (!window.subredes || window.subredes.length === 0) {
+      subnetSelect.innerHTML = '<option value="">No hay subredes disponibles</option>'
+      return
+    }
+
+    // Añadir cada subred como una opción
+    window.subredes.forEach((subred, index) => {
+      const option = document.createElement("option")
+      option.value = index
+      option.textContent = `Subred ${index + 1}: ${subred.address}/${maskToCidr(subred.mask)} (${subred.range.start} - ${subred.range.end})`
+      subnetSelect.appendChild(option)
+    })
+
+    // Actualizar la IP del servidor con la primera subred
+    actualizarIpServidor()
+  }
+
+  // Convertir máscara a formato CIDR
+  function maskToCidr(mask) {
+    const parts = mask.split(".")
+    let cidr = 0
+
+    for (let i = 0; i < 4; i++) {
+      const octet = Number.parseInt(parts[i])
+      for (let j = 7; j >= 0; j--) {
+        if (octet & (1 << j)) {
+          cidr++
+        } else {
+          return cidr
+        }
+      }
+    }
+
+    return cidr
+  }
+
+  // Actualizar la IP sugerida del servidor basada en la subred seleccionada
+  subnetSelect.addEventListener("change", actualizarIpServidor)
+
+  function actualizarIpServidor() {
+    const selectedIndex = subnetSelect.value
+    if (selectedIndex === "" || !window.subredes[selectedIndex]) {
+      serverIpInSubnet.value = ""
+      return
+    }
+
+    const subred = window.subredes[selectedIndex]
+    // Sugerir la segunda IP disponible en el rango (la primera suele ser el gateway)
+    const ipParts = subred.range.start.split(".")
+    ipParts[3] = Number.parseInt(ipParts[3]) + 1
+    serverIpInSubnet.value = ipParts.join(".")
+
+    // Actualizar la vista previa
+    actualizarVistaPrevia()
+  }
+
+  // Actualizar la vista previa de la configuración de netplan
+  function actualizarVistaPrevia() {
+    const selectedIndex = subnetSelect.value
+    if (selectedIndex === "" || !window.subredes[selectedIndex]) {
+      netplanPreview.textContent = "Selecciona una subred para ver la vista previa"
+      return
+    }
+
+    const subred = window.subredes[selectedIndex]
+    const config = {
+      primaryInterface: primaryInterface.value,
+      subnetAddress: subred.address,
+      subnetMask: subred.mask,
+      serverIp: serverIpInSubnet.value,
+      gateway: subred.gateway,
+    }
+
+    const netplanConfig = generateNetplanConfig(config)
+    netplanPreview.textContent = netplanConfig
+  }
+
+  // Generar configuración de netplan
+  function generateNetplanConfig(config) {
+    const { primaryInterface, subnetAddress, subnetMask, serverIp, gateway } = config
+
+    // Convertir máscara de subred a formato CIDR
+    const cidrPrefix = maskToCidr(subnetMask)
+
+    // Corregir el punto y coma después del gateway
+    const gatewayFixed = gateway.endsWith(";") ? gateway.slice(0, -1) : gateway
+
+    // Crear la configuración de netplan (solo para la interfaz principal)
+    const netplanConfig = `network:
+  version: 2
+  renderer: networkd
+  ethernets:
+    ${primaryInterface}:
+      dhcp4: no
+      addresses:
+        - ${serverIp}/${cidrPrefix}  # IP fija del servidor en la subred principal
+      routes:
+        - to: 0.0.0.0/0
+          via: ${gatewayFixed}  # Gateway principal
+          metric: 100  # Prioridad alta para esta ruta
+      nameservers:
+        addresses:
+          - 8.8.8.8
+          - 8.8.4.4`
+
+    return netplanConfig
+  }
+  // Escuchar cambios en los campos para actualizar la vista previa
+  if (primaryInterface) {
+    primaryInterface.addEventListener("input", actualizarVistaPrevia)
+  }
+
+  if (serverIpInSubnet) {
+    serverIpInSubnet.addEventListener("input", actualizarVistaPrevia)
+  }
+
+  // Enviar formulario de netplan
+  netplanForm.addEventListener("submit", async (evento) => {
+    evento.preventDefault()
+
+    try {
+      if (!window.electronAPI) {
+        throw new Error("Error de comunicación con el proceso principal")
+      }
+
+      // Obtener la subred seleccionada
+      const selectedIndex = subnetSelect.value
+      if (selectedIndex === "" || !window.subredes[selectedIndex]) {
+        throw new Error("Por favor, selecciona una subred válida")
+      }
+
+      const subred = window.subredes[selectedIndex]
+
+      // Validar la IP del servidor
+      if (!esDireccionIpValida(serverIpInSubnet.value)) {
+        throw new Error("Formato de IP del servidor inválido")
+      }
+
+      // Generar la configuración de netplan
+      const config = {
+        primaryInterface: primaryInterface.value,
+        subnetAddress: subred.address,
+        subnetMask: subred.mask,
+        serverIp: serverIpInSubnet.value,
+        gateway: subred.gateway,
+      }
+
+      const netplanConfig = generateNetplanConfig(config)
+
+      // Mostrar información de conexión
+      netplanStatus.innerHTML = `<div class="loading">
+        <p>Aplicando configuración de netplan al servidor...</p>
+        <p>Esto puede tardar unos momentos. Por favor, espera...</p>
+        <div class="spinner"></div>
+      </div>`
+
+      console.log("Enviando configuración de netplan:", netplanConfig)
+
+      // Enviar la configuración al proceso principal
+      const resultado = await window.electronAPI.sendToMain("aplicar-netplan", netplanConfig)
+
+      console.log("Resultado de aplicar netplan:", resultado)
+
+      if (resultado && resultado.exito) {
+        netplanStatus.innerHTML = '<div class="success">Configuración de netplan aplicada correctamente</div>'
+      } else {
+        netplanStatus.innerHTML = `<div class="error">
+          <p>Error al aplicar configuración de netplan: ${resultado ? resultado.mensaje : "Error desconocido"}</p>
+          <p>Verifica que:</p>
+          <ul>
+            <li>La dirección IP del servidor es correcta</li>
+            <li>El servidor está encendido y accesible en la red</li>
+            <li>El servicio SSH está activo en el servidor</li>
+            <li>El usuario tiene permisos sudo</li>
+          </ul>
+        </div>`
+      }
+    } catch (error) {
+      console.error("Error al aplicar configuración de netplan:", error)
+      netplanStatus.innerHTML = `<div class="error">Error: ${error.message}</div>`
     }
   })
 
@@ -220,11 +485,11 @@ document.addEventListener("DOMContentLoaded", () => {
   // Cargar configuración del servidor si existe
   async function cargarConfiguracionServidor() {
     try {
-      if (!window.ipcRenderer) {
+      if (!window.electronAPI) {
         throw new Error("ipcRenderer no está disponible")
       }
 
-      const configuracion = await window.ipcRenderer.invoke("obtener-configuracion-servidor")
+      const configuracion = await window.electronAPI.sendToMain("obtener-configuracion-servidor")
 
       if (configuracion) {
         document.getElementById("server-ip").value = configuracion.ip || ""
@@ -234,54 +499,6 @@ document.addEventListener("DOMContentLoaded", () => {
     } catch (error) {
       console.error("Error al cargar configuración del servidor:", error)
     }
-  }
-
-  // Convertir la configuración VLSM a formato DHCP
-  function convertirAFormatoDHCP(configuracionVLSM) {
-    // Analizar la configuración VLSM
-    const lineas = configuracionVLSM.split("\n")
-    let configuracionDHCP = "authoritative;\n\n"
-
-    // Procesar cada bloque de subred
-    for (let i = 0; i < lineas.length; i++) {
-      const linea = lineas[i]
-
-      // Buscar líneas que comienzan con "subnet"
-      if (linea.trim().startsWith("subnet")) {
-        // Extraer información de la subred
-        const partes = linea.match(/subnet\s+(\S+)\s+netmask\s+(\S+)/)
-        if (partes) {
-          const subred = partes[1]
-          const mascara = partes[2]
-
-          // Buscar el rango en la siguiente línea
-          const rangoLinea = lineas[i + 1]
-          const rangoParts = rangoLinea.match(/range\s+(\S+)\s+-\s+(\S+)/)
-
-          if (rangoParts) {
-            const rangoInicio = rangoParts[1]
-            const rangoFin = rangoParts[2]
-
-            // Buscar el router en la siguiente línea
-            const routerLinea = lineas[i + 2]
-            const routerParts = routerLinea.match(/option\s+routers\s+(\S+)/)
-
-            if (routerParts) {
-              const router = routerParts[1]
-
-              // Agregar la configuración DHCP para esta subred
-              configuracionDHCP += `subnet ${subred} netmask ${mascara} {\n`
-              configuracionDHCP += `  range ${rangoInicio} ${rangoFin};\n`
-              configuracionDHCP += `  option routers ${router};\n`
-              configuracionDHCP += `  option domain-name-servers 8.8.8.8, 8.8.4.4;\n`
-              configuracionDHCP += `}\n\n`
-            }
-          }
-        }
-      }
-    }
-
-    return configuracionDHCP
   }
 
   function esDireccionIpValida(ip) {
@@ -298,5 +515,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // Deshabilitar el botón para enviar al servidor inicialmente
   botonEnviarServidor.disabled = true
+
+  // Cargar configuración del servidor si existe
+  cargarConfiguracionServidor()
 })
 

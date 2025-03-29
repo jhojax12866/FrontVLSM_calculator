@@ -3,7 +3,6 @@ const path = require("path")
 const fs = require("fs")
 const crypto = require("crypto")
 const { Client } = require("ssh2")
-const { cleanPreviousConfigs } = require("../utils/clean-dhcp-config")
 
 // Mantener una referencia global del objeto window
 let mainWindow
@@ -25,13 +24,17 @@ function createWindow() {
   console.log("Cargando archivo desde:", indexPath)
   mainWindow.loadFile(indexPath)
 
-  // Abrir DevTools para depuración (opcional)
-  // mainWindow.webContents.openDevTools();
+  // Abrir DevTools para depuración
+  mainWindow.webContents.openDevTools()
 }
 
 // Este método se llamará cuando Electron haya terminado
 // la inicialización y esté listo para crear ventanas del navegador.
-app.whenReady().then(createWindow)
+app.whenReady().then(() => {
+  // Registrar manejadores IPC antes de crear la ventana
+  setupIpcHandlers()
+  createWindow()
+})
 
 // Salir cuando todas las ventanas estén cerradas, excepto en macOS.
 app.on("window-all-closed", () => {
@@ -207,10 +210,6 @@ async function automateNetworkConfiguration(dhcpConfig) {
         })
     })
 
-    // Limpiar configuraciones anteriores para evitar duplicados
-    console.log("🧹 Limpiando configuraciones anteriores...")
-    await cleanPreviousConfigs(ssh, password)
-
     // Función para ejecutar comandos SSH
     const ejecutarComando = (comando) => {
       return new Promise((resolve, reject) => {
@@ -275,36 +274,17 @@ async function automateNetworkConfiguration(dhcpConfig) {
   }
 }
 
-// Manejar la solicitud para guardar configuración del servidor
-ipcMain.handle("guardar-configuracion-servidor", async (event, configuracion) => {
+// Función para aplicar configuración de netplan
+async function applyNetplanConfiguration(netplanConfig) {
   try {
-    // Aquí es donde se reciben los datos del formulario HTML
-    const { ip, usuario, contrasena } = configuracion
-    console.log("Recibiendo datos del formulario:", { ip, usuario, contrasena: "***" })
+    console.log("Iniciando aplicación de configuración netplan...")
 
-    // Cifrar y guardar credenciales con los datos del formulario
-    const resultado = encryptCredentials(usuario, contrasena, ip)
-
-    if (resultado) {
-      return { exito: true, mensaje: "Configuración guardada correctamente" }
-    } else {
-      return { exito: false, mensaje: "Error al guardar la configuración" }
-    }
-  } catch (error) {
-    console.error("Error al guardar configuración:", error)
-    return { exito: false, mensaje: error.message }
-  }
-})
-
-// Manejar la solicitud para obtener configuración del servidor
-ipcMain.handle("obtener-configuracion-servidor", async (event) => {
-  try {
     // Verificar si existen los archivos necesarios
     const keyPath = path.join(app.getPath("userData"), "secret.key")
     const credPath = path.join(app.getPath("userData"), "credenciales.enc")
 
     if (!fs.existsSync(keyPath) || !fs.existsSync(credPath)) {
-      return null
+      throw new Error("No se encontraron credenciales. Por favor, configura el servidor primero.")
     }
 
     // Leer la clave
@@ -313,38 +293,220 @@ ipcMain.handle("obtener-configuracion-servidor", async (event) => {
     // Leer y descifrar credenciales
     const credencialesCifradas = fs.readFileSync(credPath, "utf8").split("\n")
 
-    const usuario = decryptData(credencialesCifradas[0], key)
-    const ip = decryptData(credencialesCifradas[2], key)
+    const user = decryptData(credencialesCifradas[0], key)
+    const password = decryptData(credencialesCifradas[1], key)
+    const host = decryptData(credencialesCifradas[2], key)
 
-    if (!usuario || !ip) {
+    if (!user || !password || !host) {
+      throw new Error("Error al descifrar las credenciales")
+    }
+
+    console.log(`Credenciales descifradas correctamente para ${host}`)
+
+    // Crear cliente SSH
+    const ssh = new Client()
+
+    // Conectar por SSH
+    await new Promise((resolve, reject) => {
+      console.log(`Intentando conectar a ${host}:22 con usuario ${user}...`)
+
+      ssh
+        .on("ready", () => {
+          console.log("Conexión SSH establecida correctamente")
+          resolve()
+        })
+        .on("error", (err) => {
+          console.error("Error SSH:", err)
+          reject(err)
+        })
+        .connect({
+          host,
+          port: 22,
+          username: user,
+          password,
+          readyTimeout: 30000,
+          algorithms: {
+            serverHostKey: ["ssh-rsa", "ssh-dss", "ecdsa-sha2-nistp256", "ssh-ed25519"],
+          },
+        })
+    })
+
+    // Escapar comillas y caracteres especiales para el comando bash
+    const escapedConfig = netplanConfig.replace(/"/g, '\\"').replace(/\$/g, "\\$")
+
+    // Comandos a ejecutar
+    const comandoBackup = `echo ${password} | sudo -S cp /etc/netplan/50-cloud-init.yaml /etc/netplan/50-cloud-init.yaml.bak`
+    const comandoEditar = `echo ${password} | sudo -S bash -c 'echo -e "${escapedConfig}" > /etc/netplan/50-cloud-init.yaml'`
+    const comandoAplicar = `echo ${password} | sudo -S netplan apply`
+    const comandoVerificar = `cat /etc/netplan/50-cloud-init.yaml`
+
+    // Función para ejecutar comandos SSH
+    const ejecutarComando = (comando) => {
+      return new Promise((resolve, reject) => {
+        ssh.exec(comando, (err, stream) => {
+          if (err) return reject(err)
+
+          let salida = ""
+          let error = ""
+
+          stream
+            .on("close", (code) => {
+              if (code !== 0) {
+                console.error(`Error en comando (código ${code}):`, error)
+              }
+              resolve(salida)
+            })
+            .on("data", (data) => {
+              salida += data.toString()
+            })
+            .stderr.on("data", (data) => {
+              error += data.toString()
+            })
+        })
+      })
+    }
+
+    try {
+      // 1. Hacer backup
+      console.log("📌 Creando backup del archivo netplan...")
+      await ejecutarComando(comandoBackup)
+
+      // 2. Escribir nueva configuración
+      console.log("✍️ Escribiendo nueva configuración de netplan...")
+      await ejecutarComando(comandoEditar)
+
+      // 3. Verificar que el archivo realmente cambió
+      console.log("🔍 Verificando contenido del archivo...")
+      const contenidoActual = await ejecutarComando(comandoVerificar)
+      console.log(contenidoActual)
+
+      // 4. Aplicar la configuración
+      console.log("🔄 Aplicando configuración de netplan...")
+      await ejecutarComando(comandoAplicar)
+
+      console.log("✅ Configuración de netplan aplicada correctamente.")
+
+      // Cerrar conexión SSH
+      ssh.end()
+
+      return {
+        exito: true,
+        mensaje: "Configuración de netplan aplicada correctamente",
+      }
+    } catch (error) {
+      // Cerrar conexión SSH en caso de error
+      ssh.end()
+
+      console.error(`❌ Error: ${error.message}`)
+      return {
+        exito: false,
+        mensaje: error.message,
+      }
+    }
+  } catch (error) {
+    console.error(`❌ Error: ${error.message}`)
+    return {
+      exito: false,
+      mensaje: error.message,
+    }
+  }
+}
+
+// Configurar todos los manejadores IPC
+function setupIpcHandlers() {
+  console.log("Registrando manejadores IPC...")
+
+  // Manejar la solicitud para guardar configuración del servidor
+  ipcMain.handle("guardar-configuracion-servidor", async (event, configuracion) => {
+    try {
+      // Aquí es donde se reciben los datos del formulario HTML
+      const { ip, usuario, contrasena } = configuracion
+      console.log("Recibiendo datos del formulario:", { ip, usuario, contrasena: "***" })
+
+      // Cifrar y guardar credenciales con los datos del formulario
+      const resultado = encryptCredentials(usuario, contrasena, ip)
+
+      if (resultado) {
+        return { exito: true, mensaje: "Configuración guardada correctamente" }
+      } else {
+        return { exito: false, mensaje: "Error al guardar la configuración" }
+      }
+    } catch (error) {
+      console.error("Error al guardar configuración:", error)
+      return { exito: false, mensaje: error.message }
+    }
+  })
+
+  // Manejar la solicitud para obtener configuración del servidor
+  ipcMain.handle("obtener-configuracion-servidor", async (event) => {
+    try {
+      // Verificar si existen los archivos necesarios
+      const keyPath = path.join(app.getPath("userData"), "secret.key")
+      const credPath = path.join(app.getPath("userData"), "credenciales.enc")
+
+      if (!fs.existsSync(keyPath) || !fs.existsSync(credPath)) {
+        return null
+      }
+
+      // Leer la clave
+      const key = fs.readFileSync(keyPath)
+
+      // Leer y descifrar credenciales
+      const credencialesCifradas = fs.readFileSync(credPath, "utf8").split("\n")
+
+      const usuario = decryptData(credencialesCifradas[0], key)
+      const ip = decryptData(credencialesCifradas[2], key)
+
+      if (!usuario || !ip) {
+        return null
+      }
+
+      return {
+        ip,
+        usuario,
+        // No devolver la contraseña por seguridad
+      }
+    } catch (error) {
+      console.error("Error al obtener configuración:", error)
       return null
     }
+  })
 
-    return {
-      ip,
-      usuario,
-      // No devolver la contraseña por seguridad
+  // Manejar la solicitud para enviar configuración al servidor
+  ipcMain.handle("enviar-configuracion", async (event, configuracion) => {
+    try {
+      // Usar la función de automatización
+      const resultado = await automateNetworkConfiguration(configuracion)
+
+      if (resultado.success) {
+        return { exito: true, mensaje: resultado.message }
+      } else {
+        return { exito: false, mensaje: resultado.message }
+      }
+    } catch (error) {
+      console.error("Error al enviar configuración:", error)
+      return { exito: false, mensaje: error.message }
     }
-  } catch (error) {
-    console.error("Error al obtener configuración:", error)
-    return null
-  }
-})
+  })
 
-// Manejar la solicitud para enviar configuración al servidor
-ipcMain.handle("enviar-configuracion", async (event, configuracion) => {
-  try {
-    // Usar la función de automatización
-    const resultado = await automateNetworkConfiguration(configuracion)
+  // Manejar la solicitud para aplicar configuración de netplan
+  ipcMain.handle("aplicar-netplan", async (event, configuracion) => {
+    console.log("Recibiendo solicitud para aplicar netplan:", configuracion)
 
-    if (resultado.success) {
-      return { exito: true, mensaje: resultado.message }
-    } else {
-      return { exito: false, mensaje: resultado.message }
+    try {
+      // Usar la función de automatización para netplan
+      const resultado = await applyNetplanConfiguration(configuracion)
+
+      console.log("Resultado de aplicar netplan:", resultado)
+
+      return resultado
+    } catch (error) {
+      console.error("Error al aplicar configuración de netplan:", error)
+      return { exito: false, mensaje: error.message }
     }
-  } catch (error) {
-    console.error("Error al enviar configuración:", error)
-    return { exito: false, mensaje: error.message }
-  }
-})
+  })
+
+  // Listar todos los manejadores registrados
+  console.log("Manejadores IPC registrados:", ipcMain.eventNames())
+}
 
